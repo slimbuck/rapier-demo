@@ -11,7 +11,7 @@ interface SmoothedValueType<T> {
     clone(): T;
     copy(value: T): T;
     lerp(a: T, b: T, t: number): T;
-}
+};
 
 // control a smoothed value
 class SmoothedValue<T extends SmoothedValueType<T> > {
