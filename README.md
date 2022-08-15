@@ -1,6 +1,6 @@
 # rapier-demo
 
-Simple rapier physics demo with PlayCanvas.
+Simple demo using [Rapier](https://rapier.rs/) and [PlayCanvas](https://github.com/playcanvas/engine).
 
 Use Like So:
 
