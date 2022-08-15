@@ -1,4 +1,5 @@
 import resolve from "@rollup/plugin-node-resolve";
+import typescript from "@rollup/plugin-typescript";
 import { wasm } from '@rollup/plugin-wasm';
 import copyAndWatch from "./copy-and-watch";
 
@@ -17,6 +18,7 @@ export default {
             ]
         }),
         wasm(),
-        resolve()
+        resolve(),
+        typescript()
     ]
 };

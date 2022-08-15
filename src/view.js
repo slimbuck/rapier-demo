@@ -171,7 +171,7 @@ class View {
 
         this.resolvePhysics();
 
-        this.orbitController.update(deltaTime, this.camera);
+        this.orbitController.update(deltaTime);
     }
 
     onPostRender() {

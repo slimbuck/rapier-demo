@@ -7,10 +7,13 @@ const toWorldPoint = new pc.Vec3();
 const worldDiff = new pc.Vec3();
 
 class OrbitController {
-    focalPoint;
-    azimElevDistance;
+    cameraEntity: pc.Entity;
+    focalPoint: SmoothedValue<pc.Vec3>;
+    azimElevDistance: SmoothedValue<pc.Vec3>;
+    mouseController: MouseController;
+    touchController: TouchController;
 
-    constructor(cameraEntity, mouse, touch, transitionTime=0.25) {
+    constructor(cameraEntity: pc.Entity, mouse: pc.Mouse, touch: pc.TouchDevice, transitionTime=0.25) {
         this.cameraEntity = cameraEntity;
         this.focalPoint = new SmoothedValue(new pc.Vec3(0, 0, 0), transitionTime);
         this.azimElevDistance = new SmoothedValue(new pc.Vec3(0, 0, 2), transitionTime);
@@ -23,7 +26,7 @@ class OrbitController {
         this.touchController && this.touchController.destroy();
     }
 
-    vecToAzimElevDistance(vec, azimElevDistance) {
+    vecToAzimElevDistance(vec: pc.Vec3, azimElevDistance: pc.Vec3) {
         const distance = vec.length();
         const azim = Math.atan2(-vec.x / distance, -vec.z / distance) * pc.math.RAD_TO_DEG;
         const elev = Math.asin(vec.y / distance) * pc.math.RAD_TO_DEG;
@@ -31,7 +34,7 @@ class OrbitController {
     }
 
     // calculate the current forward vector
-    calcForwardVec(result) {
+    calcForwardVec(result: pc.Vec3) {
         const ex = this.azimElevDistance.value.y * pc.math.DEG_TO_RAD;
         const ey = this.azimElevDistance.value.x * pc.math.DEG_TO_RAD;
         const s1 = Math.sin(-ex);
@@ -41,7 +44,7 @@ class OrbitController {
         result.set(-c1 * s2, s1, c1 * c2);
     }
 
-    update(deltaTime, targetEntity) {
+    update(deltaTime: number) {
         // update underlying values
         this.focalPoint.update(deltaTime);
         this.azimElevDistance.update(deltaTime);
@@ -51,16 +54,16 @@ class OrbitController {
         vec.mulScalar(aed.z);
         vec.add(this.focalPoint.value);
 
-        targetEntity.setLocalPosition(vec);
-        targetEntity.setLocalEulerAngles(aed.y, aed.x, 0);
+        this.cameraEntity.setLocalPosition(vec);
+        this.cameraEntity.setLocalEulerAngles(aed.y, aed.x, 0);
     }
 }
 
 // MouseController
 
 class MouseController {
-    mouse;
-    orbitController;
+    mouse: pc.Mouse;
+    orbitController: OrbitController;
     orbitSensitivity = 0.3;
     distanceSensitivity = 0.4;
     lookButtonDown = false;
@@ -71,7 +74,7 @@ class MouseController {
         this.onMouseOut();
     };
 
-    constructor(mouse, orbitController) {
+    constructor(mouse: pc.Mouse, orbitController: OrbitController) {
         this.mouse = mouse;
         this.orbitController = orbitController;
 
@@ -97,7 +100,7 @@ class MouseController {
         window.removeEventListener('mouseout', this.onMouseOutFunc, false);
     }
 
-    pan(screenPoint) {
+    pan(screenPoint: pc.MouseEvent) {
         // For panning to work at any zoom level, we use screen point to world projection
         // to work out how far we need to pan the pivotEntity in world space
         const camera = this.orbitController.cameraEntity.camera;
@@ -113,7 +116,7 @@ class MouseController {
     }
 
 
-    onMouseDown(event) {
+    onMouseDown(event: pc.MouseEvent) {
         switch (event.button) {
             case pc.MOUSEBUTTON_LEFT:
                 this.lookButtonDown = true;
@@ -125,7 +128,7 @@ class MouseController {
         }
     }
 
-    onMouseUp(event) {
+    onMouseUp(event: pc.MouseEvent) {
         switch (event.button) {
             case pc.MOUSEBUTTON_LEFT:
                 this.lookButtonDown = false;
@@ -137,7 +140,7 @@ class MouseController {
         }
     }
 
-    onMouseMove(event) {
+    onMouseMove(event: pc.MouseEvent) {
         if (this.lookButtonDown) {
             vec.copy(this.orbitController.azimElevDistance.target);
             vec.y -= event.dy * this.orbitSensitivity;
@@ -150,7 +153,7 @@ class MouseController {
         this.lastPoint.set(event.x, event.y);
     }
 
-    onMouseWheel(event) {
+    onMouseWheel(event: pc.MouseEvent) {
         vec.copy(this.orbitController.azimElevDistance.target);
         vec.z -= event.wheelDelta * -2 * this.distanceSensitivity * (vec.z * 0.1);
         this.orbitController.azimElevDistance.goto(vec);
@@ -166,8 +169,8 @@ class MouseController {
 // TouchController
 
 class TouchController {
-    touch;
-    orbitContoller;
+    touch: pc.TouchDevice;
+    orbitContoller: OrbitController;
     orbitSensitivity = 0.3;
     distanceSensitivity = 0.4;
     lastTouchPoint = new pc.Vec2();
@@ -175,7 +178,7 @@ class TouchController {
     lastPinchDistance = 0;
     pinchMidPoint = new pc.Vec2();
 
-    constructor(touch, orbitContoller) {
+    constructor(touch: pc.TouchDevice, orbitContoller: OrbitController) {
         this.touch = touch;
         this.orbitContoller = orbitContoller;
 
@@ -194,21 +197,21 @@ class TouchController {
         this.touch.off(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
     }
 
-    getPinchDistance(pointA, pointB) {
+    getPinchDistance(pointA: pc.Touch, pointB: pc.Touch) {
         // Return the distance between the two points
         const dx = pointA.x - pointB.x;
         const dy = pointA.y - pointB.y;
         return Math.sqrt((dx * dx) + (dy * dy));
     }
 
-    calcMidPoint(pointA, pointB, result) {
+    calcMidPoint(pointA: pc.Touch, pointB: pc.Touch, result: pc.Vec2) {
         result.set(pointB.x - pointA.x, pointB.y - pointA.y);
         result.mulScalar(0.5);
         result.x += pointA.x;
         result.y += pointA.y;
     }
 
-    onTouchStartEndCancel(event) {
+    onTouchStartEndCancel(event: pc.TouchEvent) {
         // We only care about the first touch for camera rotation. As the user touches the screen,
         // we stored the current touch position
         const touches = event.touches;
@@ -221,7 +224,7 @@ class TouchController {
         }
     }
 
-    pan(midPoint) {
+    pan(midPoint: pc.Vec2) {
         // For panning to work at any zoom level, we use screen point to world projection
         // to work out how far we need to pan the pivotEntity in world space
         const camera = this.orbitContoller.cameraEntity.camera;
@@ -236,7 +239,7 @@ class TouchController {
         this.orbitContoller.focalPoint.goto(worldDiff);
     }
 
-    onTouchMove(event) {
+    onTouchMove(event: pc.TouchEvent) {
         const pinchMidPoint = this.pinchMidPoint;
 
         const aed = this.orbitContoller.azimElevDistance.target.clone();

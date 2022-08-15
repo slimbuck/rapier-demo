@@ -11,9 +11,10 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
+  "devDependencies": {
     "@dimforge/rapier3d-compat": "^0.9.0",
     "@rollup/plugin-node-resolve": "^13.3.0",
+    "@rollup/plugin-typescript": "^8.3.4",
     "@rollup/plugin-wasm": "^5.2.0",
     "concurrently": "^7.3.0",
     "playcanvas": "^1.55.3",
