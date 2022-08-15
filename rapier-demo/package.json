@@ -1,0 +1,24 @@
+{
+  "name": "rapier-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "serve": "serve dist",
+    "develop": "concurrently --kill-others \"npm run watch\" \"npm run serve\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@dimforge/rapier3d": "^0.9.0",
+    "@dimforge/rapier3d-compat": "^0.9.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
+    "@rollup/plugin-wasm": "^5.2.0",
+    "concurrently": "^7.3.0",
+    "playcanvas": "^1.55.3",
+    "rollup": "^2.78.0",
+    "serve": "^14.0.1"
+  }
+}
