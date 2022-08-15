@@ -1,45 +1,5 @@
 import * as pc from 'playcanvas';
-
-class SmoothedValue {
-    value;
-    start;
-    target;
-    transitionTime;
-    timer;
-
-    constructor(value, transitionTime = 0.25) {
-        this.value = value.clone();
-        this.start = value.clone();
-        this.target = value.clone();
-        this.transitionTime = transitionTime;
-        this.timer = 0;
-    }
-
-    goto(target) {
-        this.timer = 0;
-        this.start.copy(this.value);
-        this.target.copy(target);
-    }
-
-    snapto(value) {
-        this.timer = this.transitionTime;
-        this.target.copy(value);
-    }
-
-    update(deltaTime) {
-        if (this.timer < this.transitionTime) {
-            this.timer = Math.min(this.timer + deltaTime, this.transitionTime);
-            const n = this.timer / this.transitionTime;
-            // const t = Math.sin(n * Math.PI / 2.0);        // sinosidal
-            // const t = n * (2 - n);                        // quadratic
-            // const t = 1 - --n * n * n * n;                // quartic
-            const t = Math.pow(n - 1, 5) + 1;               // quintic
-            this.value.lerp(this.start, this.target, t);
-        } else {
-            this.value.copy(this.target);
-        }
-    }
-}
+import { SmoothedValue } from './smoothed-value';
 
 const vec = new pc.Vec3();
 const fromWorldPoint = new pc.Vec3();
