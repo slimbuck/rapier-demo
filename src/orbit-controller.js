@@ -1,20 +1,26 @@
 import * as pc from 'playcanvas';
-import { SmoothedValue } from './smoothed-value';
+import { SmoothedValue } from './smoothed-value.js';
 
 const vec = new pc.Vec3();
 const fromWorldPoint = new pc.Vec3();
 const toWorldPoint = new pc.Vec3();
 const worldDiff = new pc.Vec3();
 
-class OrbitCamera {
-    cameraNode;
+class OrbitController {
     focalPoint;
     azimElevDistance;
 
-    constructor(cameraNode, transitionTime) {
-        this.cameraNode = cameraNode;
+    constructor(cameraEntity, mouse, touch, transitionTime=0.25) {
+        this.cameraEntity = cameraEntity;
         this.focalPoint = new SmoothedValue(new pc.Vec3(0, 0, 0), transitionTime);
         this.azimElevDistance = new SmoothedValue(new pc.Vec3(0, 0, 2), transitionTime);
+        this.mouseController = mouse && new MouseController(mouse, this);
+        this.touchController = touch && new TouchController(touch, this);
+    }
+
+    destroy() {
+        this.mouseController && this.mouseController.destroy();
+        this.touchController && this.touchController.destroy();
     }
 
     vecToAzimElevDistance(vec, azimElevDistance) {
@@ -35,7 +41,7 @@ class OrbitCamera {
         result.set(-c1 * s2, s1, c1 * c2);
     }
 
-    update(deltaTime) {
+    update(deltaTime, targetEntity) {
         // update underlying values
         this.focalPoint.update(deltaTime);
         this.azimElevDistance.update(deltaTime);
@@ -45,16 +51,16 @@ class OrbitCamera {
         vec.mulScalar(aed.z);
         vec.add(this.focalPoint.value);
 
-        this.cameraNode.setLocalPosition(vec);
-        this.cameraNode.setLocalEulerAngles(aed.y, aed.x, 0);
+        targetEntity.setLocalPosition(vec);
+        targetEntity.setLocalEulerAngles(aed.y, aed.x, 0);
     }
 }
 
-// OrbitCameraInputMouse
+// MouseController
 
-class OrbitCameraInputMouse {
-    app;
-    orbitCamera;
+class MouseController {
+    mouse;
+    orbitController;
     orbitSensitivity = 0.3;
     distanceSensitivity = 0.4;
     lookButtonDown = false;
@@ -65,28 +71,28 @@ class OrbitCameraInputMouse {
         this.onMouseOut();
     };
 
-    constructor(app, orbitCamera) {
-        this.app = app;
-        this.orbitCamera = orbitCamera;
+    constructor(mouse, orbitController) {
+        this.mouse = mouse;
+        this.orbitController = orbitController;
 
-        this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
-        this.app.mouse.on(pc.EVENT_MOUSEUP, this.onMouseUp, this);
-        this.app.mouse.on(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
-        this.app.mouse.on(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
+        this.mouse.on(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
+        this.mouse.on(pc.EVENT_MOUSEUP, this.onMouseUp, this);
+        this.mouse.on(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
+        this.mouse.on(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
 
         // Listen to when the mouse travels out of the window
         window.addEventListener('mouseout', this.onMouseOutFunc, false);
 
         // Disabling the context menu stops the browser displaying a menu when
         // you right-click the page
-        this.app.mouse.disableContextMenu();
+        this.mouse.disableContextMenu();
     }
 
     destroy() {
-        this.app.mouse.off(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
-        this.app.mouse.off(pc.EVENT_MOUSEUP, this.onMouseUp, this);
-        this.app.mouse.off(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
-        this.app.mouse.off(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
+        this.mouse.off(pc.EVENT_MOUSEDOWN, this.onMouseDown, this);
+        this.mouse.off(pc.EVENT_MOUSEUP, this.onMouseUp, this);
+        this.mouse.off(pc.EVENT_MOUSEMOVE, this.onMouseMove, this);
+        this.mouse.off(pc.EVENT_MOUSEWHEEL, this.onMouseWheel, this);
 
         window.removeEventListener('mouseout', this.onMouseOutFunc, false);
     }
@@ -94,16 +100,16 @@ class OrbitCameraInputMouse {
     pan(screenPoint) {
         // For panning to work at any zoom level, we use screen point to world projection
         // to work out how far we need to pan the pivotEntity in world space
-        const camera = this.orbitCamera.cameraNode.camera;
-        const distance = this.orbitCamera.azimElevDistance.value.z;
+        const camera = this.orbitController.cameraEntity.camera;
+        const distance = this.orbitController.azimElevDistance.value.z;
 
         camera.screenToWorld(screenPoint.x, screenPoint.y, distance, fromWorldPoint);
         camera.screenToWorld(this.lastPoint.x, this.lastPoint.y, distance, toWorldPoint);
 
         worldDiff.sub2(toWorldPoint, fromWorldPoint);
-        worldDiff.add(this.orbitCamera.focalPoint.target);
+        worldDiff.add(this.orbitController.focalPoint.target);
 
-        this.orbitCamera.focalPoint.goto(worldDiff);
+        this.orbitController.focalPoint.goto(worldDiff);
     }
 
 
@@ -133,10 +139,10 @@ class OrbitCameraInputMouse {
 
     onMouseMove(event) {
         if (this.lookButtonDown) {
-            vec.copy(this.orbitCamera.azimElevDistance.target);
+            vec.copy(this.orbitController.azimElevDistance.target);
             vec.y -= event.dy * this.orbitSensitivity;
             vec.x -= event.dx * this.orbitSensitivity;
-            this.orbitCamera.azimElevDistance.goto(vec);
+            this.orbitController.azimElevDistance.goto(vec);
         } else if (this.panButtonDown) {
             this.pan(event);
         }
@@ -145,9 +151,9 @@ class OrbitCameraInputMouse {
     }
 
     onMouseWheel(event) {
-        vec.copy(this.orbitCamera.azimElevDistance.target);
+        vec.copy(this.orbitController.azimElevDistance.target);
         vec.z -= event.wheelDelta * -2 * this.distanceSensitivity * (vec.z * 0.1);
-        this.orbitCamera.azimElevDistance.goto(vec);
+        this.orbitController.azimElevDistance.goto(vec);
         event.event.preventDefault();
     }
 
@@ -157,11 +163,11 @@ class OrbitCameraInputMouse {
     }
 }
 
-// OrbitCameraInputTouch
+// TouchController
 
-class OrbitCameraInputTouch {
-    app;
-    orbitCamera;
+class TouchController {
+    touch;
+    orbitContoller;
     orbitSensitivity = 0.3;
     distanceSensitivity = 0.4;
     lastTouchPoint = new pc.Vec2();
@@ -169,26 +175,23 @@ class OrbitCameraInputTouch {
     lastPinchDistance = 0;
     pinchMidPoint = new pc.Vec2();
 
-    constructor(app, orbitCamera) {
-        this.app = app;
-        this.orbitCamera = orbitCamera;
+    constructor(touch, orbitContoller) {
+        this.touch = touch;
+        this.orbitContoller = orbitContoller;
 
-        if (this.app.touch) {
-            // Use the same callback for the touchStart, touchEnd and touchCancel events as they
-            // all do the same thing which is to deal the possible multiple touches to the screen
-            this.app.touch.on(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
-            this.app.touch.on(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
-            this.app.touch.on(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
-
-            this.app.touch.on(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
-        }
+        // Use the same callback for the touchStart, touchEnd and touchCancel events as they
+        // all do the same thing which is to deal the possible multiple touches to the screen
+        this.touch.on(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
+        this.touch.on(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
+        this.touch.on(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
+        this.touch.on(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
     }
 
     destroy() {
-        this.app.touch.off(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
-        this.app.touch.off(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
-        this.app.touch.off(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
-        this.app.touch.off(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
+        this.touch.off(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
+        this.touch.off(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
+        this.touch.off(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
+        this.touch.off(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
     }
 
     getPinchDistance(pointA, pointB) {
@@ -221,22 +224,22 @@ class OrbitCameraInputTouch {
     pan(midPoint) {
         // For panning to work at any zoom level, we use screen point to world projection
         // to work out how far we need to pan the pivotEntity in world space
-        const camera = this.orbitCamera.cameraNode.camera;
-        const distance = this.orbitCamera.azimElevDistance.target.z;
+        const camera = this.orbitContoller.cameraEntity.camera;
+        const distance = this.orbitContoller.azimElevDistance.target.z;
 
         camera.screenToWorld(midPoint.x, midPoint.y, distance, fromWorldPoint);
         camera.screenToWorld(this.lastPinchMidPoint.x, this.lastPinchMidPoint.y, distance, toWorldPoint);
 
         worldDiff.sub2(toWorldPoint, fromWorldPoint);
-        worldDiff.add(this.orbitCamera.focalPoint.target);
+        worldDiff.add(this.orbitContoller.focalPoint.target);
 
-        this.orbitCamera.focalPoint.goto(worldDiff);
+        this.orbitContoller.focalPoint.goto(worldDiff);
     }
 
     onTouchMove(event) {
         const pinchMidPoint = this.pinchMidPoint;
 
-        const aed = this.orbitCamera.azimElevDistance.target.clone();
+        const aed = this.orbitContoller.azimElevDistance.target.clone();
 
         // We only care about the first touch for camera rotation. Work out the difference moved since the last event
         // and use that to update the camera target position
@@ -245,7 +248,7 @@ class OrbitCameraInputTouch {
             const touch = touches[0];
             aed.y -= (touch.y - this.lastTouchPoint.y) * this.orbitSensitivity;
             aed.x -= (touch.x - this.lastTouchPoint.x) * this.orbitSensitivity;
-            this.orbitCamera.azimElevDistance.goto(aed);
+            this.orbitContoller.azimElevDistance.goto(aed);
             this.lastTouchPoint.set(touch.x, touch.y);
         } else if (touches.length === 2) {
             // Calculate the difference in pinch distance since the last event
@@ -254,7 +257,7 @@ class OrbitCameraInputTouch {
             this.lastPinchDistance = currentPinchDistance;
 
             aed.z -= (diffInPinchDistance * this.distanceSensitivity * 0.1) * (aed.z * 0.1);
-            this.orbitCamera.azimElevDistance.goto(aed);
+            this.orbitContoller.azimElevDistance.goto(aed);
 
             // Calculate pan difference
             this.calcMidPoint(touches[0], touches[1], pinchMidPoint);
@@ -265,7 +268,5 @@ class OrbitCameraInputTouch {
 }
 
 export {
-    OrbitCamera,
-    OrbitCameraInputMouse,
-    OrbitCameraInputTouch
+    OrbitController
 };

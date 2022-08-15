@@ -20,7 +20,8 @@ class World extends pc.EventHandler {
 
     init() {
         this.createBox(0, 2, 0, 0.5, 0.5, 0.5);
-        this.createBox(1, 4, 1, 1, 1, 1);
+        this.createBox(1.25, 4, -1.25, 1, 1, 1);
+        this.createBox(-1.25, 4, -1.25, 1, 1, 1);
     }
 
     createBox(px, py, pz, sx, sy, sz) {

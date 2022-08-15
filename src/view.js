@@ -1,6 +1,6 @@
 
 import * as pc from 'playcanvas';
-import { OrbitCamera, OrbitCameraInputMouse, OrbitCameraInputTouch } from './orbit-controls.js';
+import { OrbitController } from './orbit-controller.js';
 
 //-- helpers
 
@@ -101,10 +101,8 @@ class View {
         this.app.root.addChild(this.ground);
 
         // initialize orbit controls
-        this.orbitCamera = new OrbitCamera(this.camera, 0.25);
-        this.orbitCamera.focalPoint.snapto(new pc.Vec3(0, 1, 0));
-        this.orbitCameraInputMouse = new OrbitCameraInputMouse(this.app, this.orbitCamera);
-        this.orbitCameraInputTouch = new OrbitCameraInputTouch(this.app, this.orbitCamera);
+        this.orbitController = new OrbitController(this.camera, this.app.mouse, this.app.touch);
+        this.orbitController.focalPoint.snapto(new pc.Vec3(0, 1, 0));
 
         // configure render canvas
         window.addEventListener("resize", () => {
@@ -173,7 +171,7 @@ class View {
 
         this.resolvePhysics();
 
-        this.orbitCamera.update(deltaTime);
+        this.orbitController.update(deltaTime, this.camera);
     }
 
     onPostRender() {
