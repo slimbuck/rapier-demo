@@ -1,10 +1,27 @@
-import * as pc from 'playcanvas';
+import {
+    EventHandler
+} from 'playcanvas';
+import RAPIER from '@dimforge/rapier3d-compat';
 
-class World extends pc.EventHandler {
-    constructor(RAPIER) {
+interface WorldFrame {
+    time: number;
+    bodies: any[];
+};
+
+interface WorldEntity {
+    id: number;
+    type: string;
+    position: { x: number, y: number, z: number },
+    size: { x: number, y: number, z: number }
+}
+
+class World extends EventHandler {
+    world: RAPIER.World;
+    time = 0;
+    bodies: RAPIER.RigidBody[];
+
+    constructor() {
         super();
-
-        this.RAPIER = RAPIER;
 
         // Use the RAPIER module here.
         const gravity = { x: 0.0, y: -9.81, z: 0.0 };
@@ -24,31 +41,31 @@ class World extends pc.EventHandler {
         this.createBox(-1.25, 4, -1.25, 1, 1, 1);
     }
 
-    createBox(px, py, pz, sx, sy, sz) {
+    createBox(px: number, py: number, pz: number, sx: number, sy: number, sz: number) {
         // Create a dynamic rigid-body.
-        const rigidBodyDesc = this.RAPIER.RigidBodyDesc.dynamic()
+        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(px, py, pz);
-        this.rigidBody = this.world.createRigidBody(rigidBodyDesc);
+        const rigidBody = this.world.createRigidBody(rigidBodyDesc);
 
         // Create a cuboid collider attached to the dynamic rigidBody.
-        const colliderDesc = this.RAPIER.ColliderDesc.cuboid(sx, sy, sz);
-        const collider = this.world.createCollider(colliderDesc, this.rigidBody);
+        const colliderDesc = RAPIER.ColliderDesc.cuboid(sx, sy, sz);
+        const collider = this.world.createCollider(colliderDesc, rigidBody);
 
-        this.bodies.push(this.rigidBody);
+        this.bodies.push(rigidBody);
 
         this.fire('added', {
-            id: this.rigidBody.handle,
+            id: rigidBody.handle,
             type: 'cuboid',
             position: { x: px, y: py, z: pz },
             size: { x: sx, y: sy, z: sz }
         });
     }
 
-    step(deltaTime) {
+    step() {
         this.world.step();
         this.time += this.world.integrationParameters.dt;
 
-        const bodies = {};
+        const bodies: any = {};
         this.bodies.forEach((body) => {
             bodies[body.handle] = {
                 position: body.translation(),
@@ -64,5 +81,7 @@ class World extends pc.EventHandler {
 }
 
 export {
-    World
+    World,
+    WorldFrame,
+    WorldEntity
 };

@@ -7,7 +7,7 @@ const preInitPromises = [
 ];
 
 Promise.all(preInitPromises).then((results) => {
-    const WORLD = new World(RAPIER);
+    const WORLD = new World();
     const VIEW = new View(document.getElementById("app"), WORLD);
 
     WORLD.init();

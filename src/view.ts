@@ -1,12 +1,43 @@
 
-import * as pc from 'playcanvas';
+import {
+    Application,
+    Mouse,
+    TouchDevice,
+    RESOLUTION_AUTO,
+    GAMMA_SRGB,
+    Color,
+    Entity,
+    Vec3,
+    FILLMODE_NONE,
+    Texture,
+    FILTER_NEAREST,
+    ADDRESS_CLAMP_TO_EDGE,
+    PIXELFORMAT_R8_G8_B8_A8,
+    PIXELFORMAT_DEPTH,
+    RenderTarget,
+    WebglGraphicsDevice
+} from 'playcanvas';
 import { OrbitController } from './orbit-controller.js';
+import { World, WorldEntity, WorldFrame } from './world.js';
+
+interface Vector3 {
+    x: number;
+    y: number;
+    z: number;
+};
+
+interface Vector4 {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+};
 
 //-- helpers
 
-const lerp = (a, b, t) => a * (1.0 - t) + b * t;
+const lerp = (a: number, b: number, t: number) => a * (1.0 - t) + b * t;
 
-const lerpVec3 = (a, b, t) => {
+const lerpVec3 = (a: Vector3, b: Vector3, t: number): Vector3 => {
     return {
         x: lerp(a.x, b.x, t),
         y: lerp(a.y, b.y, t),
@@ -14,7 +45,7 @@ const lerpVec3 = (a, b, t) => {
     };
 };
 
-const lerpVec4 = (a, b, t) => {
+const lerpVec4 = (a: Vector4, b: Vector4, t: number): Vector4 => {
     return {
         x: lerp(a.x, b.x, t),
         y: lerp(a.y, b.y, t),
@@ -24,13 +55,27 @@ const lerpVec4 = (a, b, t) => {
 };
 
 class View {
-    constructor(dom, world) {
+    canvas: HTMLCanvasElement;
+    world: World;
+    time = 0;
+    physicsFrames: WorldFrame[];
+    physicsObjects: any;
+    settings = {
+        multisample: true,
+        pixelScale: 1.0
+    };
+    app: Application;
+    camera: Entity;
+    light: Entity;
+    ground: Entity;
+    orbitController: OrbitController;
+
+    constructor(dom: HTMLElement, world: World) {
         this.canvas = document.createElement('canvas');
         dom.appendChild(this.canvas);
 
         // store the world
         this.world = world;
-        this.time = 0;
 
         this.physicsFrames = [null, null];
         this.physicsObjects = {};
@@ -39,16 +84,10 @@ class View {
         this.world.on('removed', (details) => this.onRemoved(details));
         this.world.on('update', (details) => this.onUpdate(details));
 
-        // construct the view settings object
-        this.settings = {
-            multisample: true,
-            pixelScale: 1.0
-        };
-
         // create the app
-        this.app = new pc.Application(this.canvas, {
-            mouse: new pc.Mouse(this.canvas),
-            touch: new pc.TouchDevice(this.canvas),
+        this.app = new Application(this.canvas, {
+            mouse: new Mouse(this.canvas),
+            touch: new TouchDevice(this.canvas),
             graphicsDeviceOptions: {
                 preferWebGl2: true,
                 alpha: true,
@@ -57,27 +96,27 @@ class View {
                 preserveDrawingBuffer: true
             }
         });
-        this.app.setCanvasResolution(pc.RESOLUTION_AUTO);
+        this.app.setCanvasResolution(RESOLUTION_AUTO);
         this.app.graphicsDevice.maxPixelRatio = window.devicePixelRatio;
-        this.app.scene.gammaCorrection = pc.GAMMA_SRGB;
+        this.app.scene.gammaCorrection = GAMMA_SRGB;
 
         this.app.on('update', (deltaTime) => this.update(deltaTime));
         this.app.on('postrender', () => this.onPostRender());
 
         // create the camera
-        this.camera = new pc.Entity("Camera");
+        this.camera = new Entity("Camera");
         this.camera.addComponent("camera", {
             fov: 75,
-            clearColor: new pc.Color(0.4, 0.45, 0.5),
+            clearColor: new Color(0.4, 0.45, 0.5),
             frustumCulling: true
         });
         this.app.root.addChild(this.camera);
 
         // create the light
-        this.light = new pc.Entity();
+        this.light = new Entity();
         this.light.addComponent("light", {
             type: "directional",
-            color: new pc.Color(1.05, 1.0, 0.95),
+            color: new Color(1.05, 1.0, 0.95),
             castShadows: true,
             intensity: 1,
             shadowBias: 0.2,
@@ -92,7 +131,7 @@ class View {
         this.app.scene.ambientLight.set(0.1, 0.15, 0.2);
 
         // create the ground plane
-        this.ground = new pc.Entity();
+        this.ground = new Entity();
         this.ground.addComponent("render", {
             type: "plane"
         });
@@ -102,7 +141,7 @@ class View {
 
         // initialize orbit controls
         this.orbitController = new OrbitController(this.camera, this.app.mouse, this.app.touch);
-        this.orbitController.focalPoint.snapto(new pc.Vec3(0, 1, 0));
+        this.orbitController.focalPoint.snapto(new Vec3(0, 1, 0));
 
         // configure render canvas
         window.addEventListener("resize", () => {
@@ -123,19 +162,19 @@ class View {
 
     resizeCanvas() {
         const canvasSize = this.getCanvasSize();
-        this.app.setCanvasFillMode(pc.FILLMODE_NONE, canvasSize.width, canvasSize.height);
+        this.app.setCanvasFillMode(FILLMODE_NONE, canvasSize.width, canvasSize.height);
         
-        const device = this.app.graphicsDevice;
-        const createTexture = (width, height, format) => {
-            return new pc.Texture(device, {
+        const device = this.app.graphicsDevice as WebglGraphicsDevice;
+        const createTexture = (width: number, height: number, format: number) => {
+            return new Texture(device, {
                 width: width,
                 height: height,
                 format: format,
                 mipmaps: false,
-                minFilter: pc.FILTER_NEAREST,
-                magFilter: pc.FILTER_NEAREST,
-                addressU: pc.ADDRESS_CLAMP_TO_EDGE,
-                addressV: pc.ADDRESS_CLAMP_TO_EDGE
+                minFilter: FILTER_NEAREST,
+                magFilter: FILTER_NEAREST,
+                addressU: ADDRESS_CLAMP_TO_EDGE,
+                addressV: ADDRESS_CLAMP_TO_EDGE
             });
         };
 
@@ -150,9 +189,9 @@ class View {
         // in with the new
         const w = Math.floor(canvasSize.width * window.devicePixelRatio / this.settings.pixelScale);
         const h = Math.floor(canvasSize.height * window.devicePixelRatio / this.settings.pixelScale);
-        const colorBuffer = createTexture(w, h, pc.PIXELFORMAT_R8_G8_B8_A8);
-        const depthBuffer = createTexture(w, h, pc.PIXELFORMAT_DEPTH);
-        const renderTarget = new pc.RenderTarget({
+        const colorBuffer = createTexture(w, h, PIXELFORMAT_R8_G8_B8_A8);
+        const depthBuffer = createTexture(w, h, PIXELFORMAT_DEPTH);
+        const renderTarget = new RenderTarget({
             colorBuffer: colorBuffer,
             depthBuffer: depthBuffer,
             flipY: false,
@@ -162,7 +201,7 @@ class View {
         this.camera.camera.renderTarget = renderTarget;
     }
 
-    update(deltaTime) {
+    update(deltaTime: number) {
         this.time += deltaTime;
 
         while (this.world.time < this.time) {
@@ -175,23 +214,24 @@ class View {
     }
 
     onPostRender() {
+        const device = this.app.graphicsDevice as WebglGraphicsDevice;
+
         if (this.camera.camera.renderTarget._samples > 1) {
             this.camera.camera.renderTarget.resolve();
         }
 
         // copy render target
-        this.app.graphicsDevice.copyRenderTarget(this.camera.camera.renderTarget, null, true, false);
+        device.copyRenderTarget(this.camera.camera.renderTarget, null, true, false);
 
         // activate the back buffer
-        const device = this.app.graphicsDevice;
         device.setRenderTarget(null);
         device.updateBegin();
         device.setViewport(0, 0, device.width, device.height);
         device.setScissor(0, 0, device.width, device.height);
     }
 
-    onAdded(details) {
-        const entity = new pc.Entity(`physics-${details.id}`);
+    onAdded(details: WorldEntity) {
+        const entity = new Entity(`physics-${details.id}`);
         if (details.type === 'cuboid') {
             entity.addComponent('render', {
                 type: 'box'
@@ -203,11 +243,11 @@ class View {
         this.physicsObjects[details.id] = entity;
     }
 
-    onRemoved(details) {
+    onRemoved(details: any) {
 
     }
 
-    onUpdate(frame) {
+    onUpdate(frame: WorldFrame) {
         // store the new frame
         this.physicsFrames[0] = this.physicsFrames[1];
         this.physicsFrames[1] = frame;
@@ -226,8 +266,10 @@ class View {
         ids.forEach((id) => {
             const entity = this.physicsObjects[id];
             if (entity) {
+                // @ts-ignore
                 const frame1 = frames[1].bodies[id];
                 if (frame1) {
+                    // @ts-ignore
                     const frame0 = frames[0].bodies[id];
 
                     let p, r;

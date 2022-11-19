@@ -1,10 +1,10 @@
 import resolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import { wasm } from '@rollup/plugin-wasm';
-import copyAndWatch from "./copy-and-watch";
+import copyAndWatch from "./copy-and-watch.mjs";
 
 export default {
-    input: 'src/index.js',
+    input: 'src/index.ts',
     output: {
         dir: 'dist',
         format: 'es',
@@ -14,11 +14,18 @@ export default {
         copyAndWatch({
             targets: [
                 { src: 'src/index.html' },
-                { src: 'src/styles.css' }
+                { src: 'static/' }
             ]
         }),
         wasm(),
         resolve(),
-        typescript()
+        typescript({
+            compilerOptions: {
+                target: "es6",
+                esModuleInterop : true
+            },
+            // typescript's sourcemaps aren't compatible, so rely on rollup's
+            sourceMap: false
+        })
     ]
 };
